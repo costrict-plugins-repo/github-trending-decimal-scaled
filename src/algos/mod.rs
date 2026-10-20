@@ -1,0 +1,74 @@
+// SPDX-FileCopyrightText: 2026 John Moxley
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+//! Algorithm library for numerical kernels.
+//!
+//! Self-contained algorithm implementations grouped by mathematical
+//! family. Each kernel is a free function that takes the **raw storage
+//! integer** plus runtime parameters (scale, rounding mode, …) and
+//! returns a raw storage integer. None of them know about the typed
+//! `Dxx<S>` wrapper; that lives in the type's method shell.
+//!
+//! # Why a separate algorithm library
+//!
+//! Three properties we want:
+//!
+//! 1. **Direct benchability.** A kernel is a function, not a method on
+//!    a typed value; benchmarks can call it head-to-head against an
+//!    alternative without going through the type wrapper.
+//! 2. **Replaceable per (width, scale).** The choice of which kernel a
+//!    given `Dxx<S>` uses lives in `crate::policy`, not in the type's
+//!    method body. Swapping the chosen winner for a single cell is a
+//!    one-line change in the policy file.
+//! 3. **Multiple implementations side-by-side.** Newton vs Goldschmidt
+//!    sqrt, Taylor vs AGM ln, lookup-table-bootstrapped vs
+//!    cold-start — they coexist in this tree, ready to be promoted by
+//!    a policy override.
+//!
+//! # Layout
+//!
+//! `algos::<family>::<variant>` — `algos::sqrt::sqrt_newton`,
+//! `algos::sqrt::sqrt_mg_divide`, `algos::ln::taylor`, etc. The
+//! `<variant>` name describes the algorithm, not the type that uses
+//! it; one variant may serve many cells.
+
+// `sqrt` / `cbrt` are unconditional — the narrow tier (D18/D38)
+// kernels in `<family>::<family>_mg_divide` are always built; each
+// wide-tier kernel inside `<family>::generic_wide` is independently
+// feature-gated.
+// Decimal arithmetic algorithm families — each operation, even the
+// trivial `Int<N>`-layer ones, is a named `<fn>_<method>` kernel under
+// `algos::<fn>/`, called *down* from the per-function policy matcher.
+pub(crate) mod add;
+pub(crate) mod cbrt;
+pub(crate) mod div;
+pub(crate) mod exp;
+/// `expm1` kernels. `policy::expm1` routes two of the four — `expm1_series`
+/// for `|x| <= 1` (`Algorithm::Series`) and `expm1_with_exp` beyond it
+/// (`Algorithm::WithExp`) — on a validity wall, not a tuning threshold.
+/// `expm1_halving` and `expm1_reduced` are kept as unrouted alternatives. See
+/// `algos::expm1`'s module docs for the four variants and the derivation's
+/// load-bearing results.
+pub(crate) mod expm1;
+pub(crate) mod hypot;
+pub(crate) mod ln;
+pub(crate) mod log;
+pub(crate) mod log1p;
+pub(crate) mod mul;
+pub(crate) mod neg;
+pub(crate) mod pow;
+pub(crate) mod rem;
+pub(crate) mod sqrt;
+pub(crate) mod sub;
+pub(crate) mod trig;
+
+// Cross-cutting support kernels consumed by multiple families and the
+// arithmetic layer: the Moller-Granlund magic-number divide
+// (`support::mg_divide`), the 256-bit sign-magnitude `Fixed` work
+// integer (`support::fixed`), and the Newton-Raphson reciprocal
+// divide (`support::newton_reciprocal`).
+pub(crate) mod support;
+
+// Unit tests for the schoolbook baselines (add/sub/neg/rem/mul/div).
+#[cfg(test)]
+mod schoolbook_tests;

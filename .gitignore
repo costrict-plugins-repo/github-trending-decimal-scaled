@@ -1,0 +1,19 @@
+/target
+Cargo.lock
+/bench-history/target
+/bench-history/Cargo.lock
+/bench-history-results
+
+# Profiler artefacts (local-only)
+*.stackdump
+flamegraph*.svg
+perf.data*
+profile.json*
+*.dtrace
+
+# scratch / local-only generated data — benches, sweeps, traces, profiling output
+/tmp/
+/bench-compare/target
+
+# Python bytecode cache (scripts/)
+__pycache__/
